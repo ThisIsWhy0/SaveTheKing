@@ -82,10 +82,11 @@ transform = Transform3D(1, 0, 0, 0, -0.216372, 0.976311, 0, -0.976311, -0.216372
 environment = SubResource("Environment_md4pe")
 
 [node name="Character" parent="." unique_id=2114551095 instance=ExtResource("2_ew4qk")]
-transform = Transform3D(1, 0, 7.35137e-08, 0, 1, 0, -7.35137e-08, 0, 1, -18.0233, 3.84924, -8.02514)
+transform = Transform3D(1, 0, 7.35137e-08, 0, 1, 0, -7.35137e-08, 0, 1, -18.0233, 35.15526, -8.02514)
 dive_force = 100.0
 dive_upward_bias = 75.0
-max_fall_time_before_ragdoll = 3.0
+base_throw_power = 20.0
+max_fall_time_before_ragdoll = 20.0
 
 [node name="Level" type="Node" parent="." unique_id=109705544]
 

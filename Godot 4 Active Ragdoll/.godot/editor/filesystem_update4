@@ -1,2 +1,7 @@
+res://Resources/character_grab_lower.res
+res://Resources/character_grab_middle.res
+res://Resources/character_grab_upper.res
+res://Resources/character_idle.res
+res://Resources/character_walk.res
 res://Scenes/world.tscn
 res://Resources/sky.tres
