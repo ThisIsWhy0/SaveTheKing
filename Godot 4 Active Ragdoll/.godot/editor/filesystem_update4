@@ -1,8 +1,5 @@
 res://Scenes/world.tscn
 res://Resources/sky.tres
+res://Scenes/world.gd
 res://Scripts/character.gd
 res://Scripts/SteamManager.gd
-res://Scenes/character.tscn
-res://Scenes/world.gd
-res://Scenes/main_menu.tscn
-res://Scenes/main_menu.gd

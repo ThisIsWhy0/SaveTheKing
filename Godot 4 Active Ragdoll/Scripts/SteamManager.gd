@@ -85,17 +85,29 @@ func join_lobby(target_lobby_id: int) -> void:
 func _on_lobby_joined(joined_lobby_id: int, _permissions: int, _locked: bool, response: int) -> void:
 	if response == 1: # ChatRoomConnectStateSuccess
 		lobby_id = joined_lobby_id
-		print("Successfully joined Steam lobby backend. ID: ", lobby_id)
 		
-		# --- FIXES THE ERR_ALREADY_IN_USE SOCKET ERROR ---
-		# 1. Cleanly disconnect the current multiplayer peer if it's lingering
+		# --- THE CRITICAL FIX ---
+		# Get the Steam ID of the person who owns/hosted this lobby
+		var lobby_owner = Steam.getLobbyOwner(lobby_id)
+		# Get our own unique Steam ID
+		var my_steam_id = Steam.getSteamID()
+		
+		# If WE are the owner, we already initialized the host peer inside _on_lobby_created!
+		# Bypassing this stops the host from downgrading itself into a client.
+		if lobby_owner == my_steam_id:
+			print("[STEAM] We created this lobby. Skipping client pipe initialization.")
+			return
+			
+		print("Successfully joined a friend's Steam lobby backend. ID: ", lobby_id)
+		
+		# Cleanly disconnect the current multiplayer peer if it's lingering
 		multiplayer.multiplayer_peer = null
 		
-		# 2. Re-instantiate a clean peer instance to completely wipe out any hosting states
+		# Re-instantiate a clean peer instance to completely wipe out any hosting states
 		network_peer = SteamMultiplayerPeer.new()
 		
-		# 3. Create the client connection over the freshly allocated network pipe
-		var client_created = network_peer.create_client(lobby_id, 0) # 0 targets the lobby owner/host
+		# Create the client connection over the freshly allocated network pipe
+		var client_created = network_peer.create_client(lobby_id, 0)
 		
 		if client_created == OK:
 			multiplayer.multiplayer_peer = network_peer

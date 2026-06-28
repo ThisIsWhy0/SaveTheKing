@@ -14,9 +14,9 @@ var walking = false
 
 # Missing physics mechanics parameters
 @export var impact_threshold: float = 22.0     
-@export var dive_force: float = 65.0          
-@export var dive_upward_bias: float = 15.0    
-@export var swing_throw_multiplier: float = 2.5 
+@export var dive_force: float = 80.0          
+@export var dive_upward_bias: float = 50.0    
+@export var swing_throw_multiplier: float = 5.0 
 
 var knockout_timer: float = 0.0
 var is_diving: bool = false
@@ -81,25 +81,51 @@ func trigger_knockout():
 	grab_joint_right.node_b = NodePath()
 
 func _ready():
-	physical_skel.physical_bones_start_simulation()
 	physics_bones = physical_skel.get_children().filter(func(x): return x is PhysicalBone3D)
+	
+	# --- FIXES THE GRAY VIEWPORT SCREEN ---
+	# Find the Camera3D node inside your CameraPivot and make it current if you own this player
+	if $MultiplayerSynchronizer.is_multiplayer_authority():
+		var cam = camera_pivot.get_node_or_null("Camera3D") # Adjust name to match your scene tree precisely
+		if cam:
+			cam.current = true
+
+# Call this method deferred from your world manager to guarantee safe placement frames
+func safely_activate_physics():
+	if physical_skel:
+		# Completely clear out old leftover velocity vectors before launching simulation tracking
+		physical_bone_body.linear_velocity = Vector3.ZERO
+		physical_bone_body.angular_velocity = Vector3.ZERO
+		
+		# Now that we are floating safely in the air, activate the muscle springs simulation loops!
+		physical_skel.physical_bones_start_simulation()
+		print("[CHARACTER] Physical skeleton simulation safely initialized in mid-air.")
 
 func _input(event):
 	# Only collect input if this specific instance belongs to the local player window
 	if not $MultiplayerSynchronizer.is_multiplayer_authority(): return
 
+	# Spacebar to recover from ragdoll/knockout mode
 	if ragdoll_mode and Input.is_action_just_pressed("jump"):
-		request_wakeup.rpc_id(1) # Ask server to wake us up
+		if multiplayer.is_server():
+			request_wakeup() # Execute locally on server thread
+		else:
+			request_wakeup.rpc_id(1) # Send up to host from client machine
 		return
 
+	# Manual ragdoll toggle key
 	if Input.is_action_just_pressed("ragdoll"):
-		request_ragdoll_toggle.rpc_id(1)
+		if multiplayer.is_server():
+			request_ragdoll_toggle() # Execute locally on server thread
+		else:
+			request_ragdoll_toggle.rpc_id(1) # Send up to host from client machine
 
 func _process(delta):
-	if multiplayer.is_server() and ragdoll_mode and knockout_timer > 0.0:
+	if multiplayer.is_server() and ragdoll_mode:
 		knockout_timer -= delta
 		if knockout_timer <= 0.0 and physical_bone_body.linear_velocity.length() < 1.5:
 			ragdoll_mode = false 
+			is_diving = false # Safety fallback to clear dive lag
 	
 	# Keep bone aiming directions responsive locally
 	var r = clamp((camera_pivot.rotation.x*2)/(PI)*2.1,-1,1)
