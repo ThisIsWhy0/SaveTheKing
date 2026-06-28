@@ -1,0 +1,36 @@
+[gd_scene format=3 uid="uid://bummhftjcr4qe"]
+
+[ext_resource type="Script" uid="uid://85ru7dpbgi78" path="res://Scenes/main_menu.gd" id="1_28flt"]
+
+[node name="MainMenu" type="Control" unique_id=1015442822]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_28flt")
+
+[node name="HostButton" type="Button" parent="." unique_id=932903605]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.29644096
+anchor_top = 0.29475307
+anchor_right = 0.70355904
+anchor_bottom = 0.46141976
+grow_horizontal = 2
+grow_vertical = 2
+text = "Host Game"
+metadata/_edit_use_anchors_ = true
+
+[node name="FindButton" type="Button" parent="." unique_id=1867756203]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.29644096
+anchor_top = 0.5123457
+anchor_right = 0.70355904
+anchor_bottom = 0.67901236
+grow_horizontal = 2
+grow_vertical = 2
+text = "Find Lobbies"
+metadata/_edit_use_anchors_ = true

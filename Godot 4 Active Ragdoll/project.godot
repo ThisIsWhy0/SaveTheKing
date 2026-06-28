@@ -15,9 +15,13 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Save The King"
-run/main_scene="res://Scenes/world.tscn"
+run/main_scene="uid://bummhftjcr4qe"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+SteamManager="*uid://dy47hn3ww6xf7"
 
 [editor_plugins]
 

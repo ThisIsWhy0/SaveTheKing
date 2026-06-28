@@ -1,7 +1,7 @@
 [gd_scene format=4 uid="uid://bwfbnvkr1oku7"]
 
 [ext_resource type="Texture2D" uid="uid://gs6n3sg4t772" path="res://Assets/godot-prototype-texture/PNG/checker_black_512x512.png" id="1_3ml47"]
-[ext_resource type="PackedScene" uid="uid://cd70x3de3pbl4" path="res://Scenes/character.tscn" id="2_ew4qk"]
+[ext_resource type="Script" uid="uid://b4xavv4yn1w2v" path="res://Scenes/world.gd" id="1_5ukr8"]
 [ext_resource type="Texture2D" uid="uid://p3vl4tw45c5r" path="res://Assets/godot-prototype-texture/PNG/logo_blue_512x512.png" id="3_e5hi0"]
 [ext_resource type="Material" uid="uid://byhoa2glvt4rq" path="res://Resources/sky.tres" id="3_hnrcy"]
 [ext_resource type="Texture2D" uid="uid://cd6i4dnd6q8i7" path="res://Assets/godot-prototype-texture/PNG/checker_orange_512x512.png" id="6_wfo6h"]
@@ -74,19 +74,13 @@ _surfaces = [{
 }]
 
 [node name="World" type="Node3D" unique_id=1174229794]
+script = ExtResource("1_5ukr8")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=137892801]
 transform = Transform3D(1, 0, 0, 0, -0.216372, 0.976311, 0, -0.976311, -0.216372, 0, 0, 0)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=289367044]
 environment = SubResource("Environment_md4pe")
-
-[node name="Character" parent="." unique_id=2114551095 instance=ExtResource("2_ew4qk")]
-transform = Transform3D(1, 0, 7.35137e-08, 0, 1, 0, -7.35137e-08, 0, 1, -18.0233, 35.15526, -8.02514)
-dive_force = 100.0
-dive_upward_bias = 75.0
-base_throw_power = 20.0
-max_fall_time_before_ragdoll = 20.0
 
 [node name="Level" type="Node" parent="." unique_id=109705544]
 
@@ -180,3 +174,6 @@ Grab right - Right mouse
 Toggle ragdoll - R
 Show cursor - Esc
 "
+
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1488111746]
+spawn_path = NodePath("..")

@@ -1,7 +1,8 @@
-res://Resources/character_grab_lower.res
-res://Resources/character_grab_middle.res
-res://Resources/character_grab_upper.res
-res://Resources/character_idle.res
-res://Resources/character_walk.res
 res://Scenes/world.tscn
 res://Resources/sky.tres
+res://Scripts/character.gd
+res://Scripts/SteamManager.gd
+res://Scenes/character.tscn
+res://Scenes/world.gd
+res://Scenes/main_menu.tscn
+res://Scenes/main_menu.gd
