@@ -1,3 +1,6 @@
+CollisionShape3D
+StaticBody3D
+CSGBox3D
 Button
 MultiplayerSpawner
 MultiplayerSynchronizer

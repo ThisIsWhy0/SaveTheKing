@@ -53,10 +53,7 @@ var grabbing_arm_right = false
 var current_delta:float
 
 # --- MULTIPLAYER PROPERTIES ---
-@export var player_id: int = 1:
-	set(value):
-		player_id = value
-		$MultiplayerSynchronizer.set_multiplayer_authority(value)
+@export var player_id: int = 1
 
 # Cached network inputs sent from clients to the host
 var network_dir: Vector3 = Vector3.ZERO
@@ -79,46 +76,55 @@ func trigger_knockout():
 	grabbing_arm_right = false
 	grab_joint_right.node_a = NodePath()
 	grab_joint_right.node_b = NodePath()
+	
+func is_local_authority() -> bool:
+	# Returns true only if this specific character belongs to this game window
+	return name == str(multiplayer.get_unique_id())
 
 func _ready():
-	physics_bones = physical_skel.get_children().filter(func(x): return x is PhysicalBone3D)
+	var cam = find_child("Camera3D", true, false)
+	if cam:
+		cam.current = false
 	
-	# --- FIXES THE GRAY VIEWPORT SCREEN ---
-	# Find the Camera3D node inside your CameraPivot and make it current if you own this player
-	if $MultiplayerSynchronizer.is_multiplayer_authority():
-		var cam = camera_pivot.get_node_or_null("Camera3D") # Adjust name to match your scene tree precisely
+	await get_tree().process_frame
+	
+	if multiplayer.is_server():
+		if physical_skel:
+			physical_bone_body.linear_velocity = Vector3.ZERO
+			physical_bone_body.angular_velocity = Vector3.ZERO
+			
+			physical_skel.physical_bones_start_simulation()
+			physics_bones = physical_skel.get_children().filter(func(x): return x is PhysicalBone3D)
+	
+	# THE FIX: Use our custom ownership check to claim the camera!
+	if is_local_authority():
 		if cam:
 			cam.current = true
-
-# Call this method deferred from your world manager to guarantee safe placement frames
-func safely_activate_physics():
-	if physical_skel:
-		# Completely clear out old leftover velocity vectors before launching simulation tracking
-		physical_bone_body.linear_velocity = Vector3.ZERO
-		physical_bone_body.angular_velocity = Vector3.ZERO
-		
-		# Now that we are floating safely in the air, activate the muscle springs simulation loops!
-		physical_skel.physical_bones_start_simulation()
-		print("[CHARACTER] Physical skeleton simulation safely initialized in mid-air.")
+			print("[CHARACTER] Authority confirmed. Camera Activated.")
 
 func _input(event):
 	# Only collect input if this specific instance belongs to the local player window
-	if not $MultiplayerSynchronizer.is_multiplayer_authority(): return
+	if not is_local_authority(): return
 
 	# Spacebar to recover from ragdoll/knockout mode
 	if ragdoll_mode and Input.is_action_just_pressed("jump"):
+		# Force block the jump queue right here locally before it ever ships to the physics thread
+		network_jump_pressed = false
+		
 		if multiplayer.is_server():
 			request_wakeup() # Execute locally on server thread
 		else:
 			request_wakeup.rpc_id(1) # Send up to host from client machine
+			
+		get_viewport().set_input_as_handled()
 		return
 
 	# Manual ragdoll toggle key
 	if Input.is_action_just_pressed("ragdoll"):
 		if multiplayer.is_server():
-			request_ragdoll_toggle() # Execute locally on server thread
+			request_ragdoll_toggle() 
 		else:
-			request_ragdoll_toggle.rpc_id(1) # Send up to host from client machine
+			request_ragdoll_toggle.rpc_id(1)
 
 func _process(delta):
 	if multiplayer.is_server() and ragdoll_mode:
@@ -138,7 +144,7 @@ func _physics_process(delta):
 	current_delta = delta
 	
 	# 1. CLIENT INPUT TRANSMISSION
-	if $MultiplayerSynchronizer.is_multiplayer_authority():
+	if is_local_authority():
 		var dir = Vector3.ZERO
 		if Input.is_action_pressed("move_forward"): dir += animated_skel.global_transform.basis.z
 		if Input.is_action_pressed("move_left"): dir += animated_skel.global_transform.basis.x
@@ -163,6 +169,10 @@ func _physics_process(delta):
 
 	# 2. SERVER FORCE CALCULATION
 	if multiplayer.is_server():
+		# DIVE FRICTION FIX: Dynamically raise body damping/friction when sliding on your stomach
+		if is_diving:
+			physical_bone_body.linear_velocity *= Vector3(0.85, 1.0, 0.85) # Increased damping from 0.9 to 0.85 to break ice sliding
+		
 		if not ragdoll_mode:
 			var current_speed = SPEED
 			if network_sprint:
@@ -170,7 +180,10 @@ func _physics_process(delta):
 			
 			walking = network_dir.length() > 0.1
 			physical_bone_body.linear_velocity += network_dir * current_speed * delta 
-			physical_bone_body.linear_velocity *= Vector3(DAMPING,1,DAMPING)
+			
+			# Apply default structural damping only if not actively diving
+			if not is_diving:
+				physical_bone_body.linear_velocity *= Vector3(DAMPING, 1.0, DAMPING)
 			
 			# Floor check
 			is_on_floor = false
@@ -194,10 +207,18 @@ func _physics_process(delta):
 					jump_timer.start()
 					can_jump = false
 					
-			network_jump_pressed = false # Clear jump flag
+			network_jump_pressed = false # Clear jump flag so it never chains into a wake-up frame
 			
 		if walking: animation_tree.set("parameters/walking/blend_amount",1)
 		else: animation_tree.set("parameters/walking/blend_amount",0)
+		
+		# --- NEW: SEND BONE POSITIONS TO THE PUPPET CLIENTS ---
+		var poses = []
+		for i in physical_skel.get_bone_count():
+			poses.append(physical_skel.get_bone_global_pose(i))
+		
+		# Broadcast the root body transform and all bone rotations unreliably (fastest for physics)
+		rpc_sync_bones.rpc(poses, physical_bone_body.global_transform)
 
 # --- NETWORK RPC HANDLERS ---
 
@@ -217,9 +238,14 @@ func transmit_inputs(dir: Vector3, sprint: bool, jump: bool, arm_l: bool, arm_r:
 
 @rpc("any_peer", "reliable")
 func request_wakeup():
-	if multiplayer.is_server() and ragdoll_mode:
-		ragdoll_mode = false
-		knockout_timer = 0.0
+	if multiplayer.is_server():
+		# Hard reset jump inputs on the server thread so it can never trigger a jump force application
+		network_jump_pressed = false 
+		
+		if ragdoll_mode:
+			ragdoll_mode = false
+			knockout_timer = 0.0
+			is_diving = false # Reset dive tracking completely upon waking up
 
 @rpc("any_peer", "reliable")
 func request_ragdoll_toggle():
@@ -303,3 +329,17 @@ func _on_skeleton_3d_skeleton_updated() -> void:
 				torque *= 0.2
 				
 			b.angular_velocity += torque * current_delta
+
+# --- CLIENT PUPPET SYNC ---
+@rpc("authority", "unreliable", "call_remote")
+func rpc_sync_bones(poses: Array, root_transform: Transform3D):
+	# We only execute this on the client screens
+	if not multiplayer.is_server():
+		# 1. Sync the physical root so your camera tracking stays attached to the body
+		physical_bone_body.global_transform = root_transform
+		
+		# 2. Force the client's visual skeleton to perfectly match the server's physical skeleton
+		for i in poses.size():
+			if i < physical_skel.get_bone_count():
+				# Override the visual bones. The true parameter tells Godot it's an absolute global space override.
+				physical_skel.set_bone_global_pose_override(i, poses[i], 1.0, true)

@@ -107,13 +107,14 @@ func _on_lobby_joined(joined_lobby_id: int, _permissions: int, _locked: bool, re
 		network_peer = SteamMultiplayerPeer.new()
 		
 		# Create the client connection over the freshly allocated network pipe
-		var client_created = network_peer.create_client(lobby_id, 0)
+		var client_created = network_peer.create_client(lobby_owner, 0)
 		
 		if client_created == OK:
 			multiplayer.multiplayer_peer = network_peer
 			print("Multiplayer client pipe assigned successfully over Steam P2P.")
 			
-			# Load the game world stage for the joining client player
-			get_tree().change_scene_to_file("res://Scenes/world.tscn")
+			# --- FIXES CLIENT LOADING BLOCKS ---
+			# Use call_deferred to safely shift the scene after the Steam signal block finishes executing
+			get_tree().call_deferred("change_scene_to_file", "res://Scenes/world.tscn")
 		else:
 			print("Failed to initialize Steam client socket connection! Error code: ", client_created)

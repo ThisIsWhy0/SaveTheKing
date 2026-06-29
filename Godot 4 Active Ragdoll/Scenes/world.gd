@@ -3,58 +3,49 @@ extends Node3D
 @export var player_character_scene: PackedScene = preload("res://Scenes/character.tscn")
 
 func _ready() -> void:
-	print("[WORLD] Scene loaded. Initializing Multiplayer Spawner...")
-	
-	# 1. Direct path allocation
+	print("[WORLD] Setting up Multiplayer Spawner...")
 	$MultiplayerSpawner.spawn_path = get_path()
 	
-	# 2. Wait until the end of the frame layout pass so the scene tree is completely stable
-	await get_tree().process_frame
-	
-	# 3. Explicit server verification
-	if multiplayer.has_multiplayer_peer():
-		print("[WORLD] Network status: Connected. Connection Status: ", multiplayer.multiplayer_peer.get_connection_status())
+	# Only the Server/Host needs to set up spawning logic.
+	# Clients will simply bypass this block and wait for the server to send them a body.
+	if multiplayer.is_server():
+		print("[WORLD] Host recognized. Initializing server spawn connections...")
 		
-		if multiplayer.is_server():
-			print("[WORLD] Authority recognized: SERVER/HOST. Hooking disconnection pipelines...")
-			multiplayer.peer_disconnected.connect(_despawn_network_player)
-			
-			# Fallback ID safety: If the peer unique ID is unready, force host ID 1
-			var host_id = multiplayer.get_unique_id()
-			if host_id == 0:
-				host_id = 1
-				
-			_spawn_network_player(host_id)
-		else:
-			print("[WORLD] Authority recognized: CLIENT. Waiting for server replication...")
+		# Hook network events to handle incoming players dynamically
+		multiplayer.peer_connected.connect(_on_peer_connected)
+		multiplayer.peer_disconnected.connect(_despawn_network_player)
+		
+		# Instantly spawn the host avatar right now (Peer ID 1)
+		_spawn_network_player(multiplayer.get_unique_id())
 	else:
-		print("[WORLD] ERROR: No active multiplayer peer found! Did SteamManager fail to bind?")
+		print("[WORLD] Client recognized. Standing by for server replication...")
 
-func _spawn_network_player(id: int) -> void:
-	print("[WORLD] Attempting to instantiate character node for Peer ID: ", id)
-	
-	if player_character_scene == null:
-		print("[WORLD] ERROR: player_character_scene is null!")
+func _on_peer_connected(id: int) -> void:
+	if has_node(str(id)):
+		print("[WORLD] Warning: Peer ", id, " already has an active character. Skipping spawn.")
 		return
 		
+	print("[WORLD] Late client connected over Steam. Initializing spawn for Peer: ", id)
+	_spawn_network_player(id)
+
+func _spawn_network_player(id: int) -> void:
+	if id == 0: id = 1
+	
+	print("[WORLD] Spawning character node for ID: ", id)
 	var new_player = player_character_scene.instantiate()
+	
+	# Name the node so `is_local_authority()` works perfectly for inputs!
 	new_player.name = str(id)
-	new_player.player_id = id
+	new_player.player_id = id 
 	
-	# 1. First, attach the node into the scene tree so it exists spatially
-	add_child(new_player, true) 
+	# Set local position safely out of the floor
+	new_player.position = Vector3(0, 5, 0)
 	
-	# 2. Position it securely in free air well clear of any floor mesh bounding boxes
-	new_player.global_position = Vector3(0, 5, 0)
-	
-	# 3. Call a deferred function to wake up the ragdoll simulation after placement frames settle
-	if new_player.has_method("safely_activate_physics"):
-		new_player.call_deferred("safely_activate_physics")
-		
-	print("[WORLD] SUCCESS: Character node safely spawned above map geometry: ", new_player.get_path())
+	# Add it to the tree. The Server retains ownership of the Synchronizer automatically.
+	add_child(new_player, true)
 
 func _despawn_network_player(id: int) -> void:
 	var target_avatar = get_node_or_null(str(id))
 	if target_avatar:
-		print("[WORLD] Removing disconnected peer avatar node: ", id)
+		print("[WORLD] Removing disconnected peer node tree: ", id)
 		target_avatar.queue_free()
