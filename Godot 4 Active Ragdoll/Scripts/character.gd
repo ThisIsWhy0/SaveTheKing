@@ -341,7 +341,7 @@ func _on_skeleton_3d_skeleton_updated() -> void:
 			b.angular_velocity += torque * current_delta
 
 # --- CLIENT PUPPET SYNC ---
-@rpc("authority", "unreliable", "call_remote")
+@rpc("authority", "reliable", "call_remote")
 func rpc_sync_bones(poses: Array, root_transform: Transform3D):
 	# We only execute this on the client screens
 	if not multiplayer.is_server():
