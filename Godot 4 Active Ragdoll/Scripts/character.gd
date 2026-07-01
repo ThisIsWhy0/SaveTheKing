@@ -88,15 +88,23 @@ func _ready():
 	
 	await get_tree().process_frame
 	
-	if multiplayer.is_server():
-		if physical_skel:
+	if physical_skel:
+		physics_bones = physical_skel.get_children().filter(func(x): return x is PhysicalBone3D)
+		
+		if multiplayer.is_server():
 			physical_bone_body.linear_velocity = Vector3.ZERO
 			physical_bone_body.angular_velocity = Vector3.ZERO
-			
+			# Only the server actually simulates ragdoll physics.
 			physical_skel.physical_bones_start_simulation()
-			physics_bones = physical_skel.get_children().filter(func(x): return x is PhysicalBone3D)
+		# Clients (puppets) deliberately do NOT start bone simulation.
+		# Starting it flips the drive direction so the physics bones drive
+		# the skeleton instead of following it — since clients never apply
+		# velocity to these bones, they'd just freeze in the bind pose
+		# (T-pose), and the camera (which tracks "Physical Bone Head")
+		# would never move either. Leaving simulation off means the bones
+		# passively follow whatever rpc_sync_bones() writes via
+		# set_bone_global_pose_override().
 	
-	# THE FIX: Use our custom ownership check to claim the camera!
 	if is_local_authority():
 		if cam:
 			cam.current = true
@@ -313,6 +321,8 @@ func _on_jump_timer_timeout():
 	can_jump = true
 
 func _on_skeleton_3d_skeleton_updated() -> void:
+	if not multiplayer.is_server():
+		return
 	if not ragdoll_mode:# if not in ragdoll mode
 		# rotate the physical bones toward the animated bones rotations using hookes law
 		for b:PhysicalBone3D in physics_bones:

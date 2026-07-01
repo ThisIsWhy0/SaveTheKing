@@ -20,6 +20,10 @@ func _physics_process(delta):
 		global_position = lerp(global_position,target_node.global_position,0.5)
 
 func _input(event):
+	# Only the locally-controlled character should react to this window's mouse input
+	if get_parent() and get_parent().has_method("is_local_authority") and not get_parent().is_local_authority():
+		return
+	
 	# mouse lock
 	if Input.is_action_just_pressed("exit_camera"):
 		mouse_lock = false
@@ -33,5 +37,3 @@ func _input(event):
 		rotation_degrees.y -= mouse_sensitivity*event.relative.x
 		rotation_degrees.x -= mouse_sensitivity*event.relative.y
 		rotation_degrees.x = clamp(rotation_degrees.x,-45,45)
-	
-		

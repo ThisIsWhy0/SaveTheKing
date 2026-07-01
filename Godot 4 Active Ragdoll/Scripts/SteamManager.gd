@@ -57,8 +57,8 @@ func _on_lobby_created(connect_status: int, created_lobby_id: int) -> void:
 			multiplayer.multiplayer_peer = network_peer
 			print("Multiplayer host assigned successfully via Steam sockets.")
 			
-			# Load the game world scene immediately for the host
-			get_tree().change_scene_to_file("res://Scenes/world.tscn")
+			# --- FIX: Use call_deferred to prevent blocking ---
+			get_tree().call_deferred("change_scene_to_file", "res://Scenes/world.tscn")
 		else:
 			print("Failed to bind Steam host socket! Error code: ", socket_created)
 
