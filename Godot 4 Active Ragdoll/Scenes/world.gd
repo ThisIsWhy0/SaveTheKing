@@ -15,8 +15,13 @@ func _ready() -> void:
 		rpc_spawn_network_player.rpc(multiplayer.get_unique_id())
 	else:
 		print("[WORLD] Client recognized. Standing by for server replication...")
+		print("[WORLD-DEBUG] My unique id is: ", multiplayer.get_unique_id())
+		multiplayer.connected_to_server.connect(func(): print("[WORLD-DEBUG] connected_to_server fired"))
+		multiplayer.server_disconnected.connect(func(): print("[WORLD-DEBUG] server_disconnected fired!"))
+		multiplayer.connection_failed.connect(func(): print("[WORLD-DEBUG] connection_failed fired!"))
 
 func _on_peer_connected(id: int) -> void:
+	print("[WORLD-DEBUG] peer_connected signal fired for id: ", id, " | current peers: ", multiplayer.get_peers())
 	if has_node(str(id)):
 		print("[WORLD] Warning: Peer ", id, " already has an active character. Skipping spawn.")
 		return
@@ -29,11 +34,14 @@ func _on_peer_connected(id: int) -> void:
 		if child_name.is_valid_int():
 			var peer_id := int(child_name)
 			if peer_id != id:
+				print("[WORLD-DEBUG] Sending targeted spawn of existing peer ", peer_id, " to new peer ", id)
 				rpc_spawn_network_player.rpc_id(id, peer_id)
 
 @rpc("authority", "call_local", "reliable")
 func rpc_spawn_network_player(id: int) -> void:
+	print("[WORLD-DEBUG] rpc_spawn_network_player CALLED with id=", id, " | am I server? ", multiplayer.is_server(), " | my unique id: ", multiplayer.get_unique_id())
 	if has_node(str(id)):
+		print("[WORLD-DEBUG] Node already exists for id ", id, ", skipping")
 		return
 	
 	if id == 0: id = 1
@@ -47,6 +55,7 @@ func rpc_spawn_network_player(id: int) -> void:
 	new_player.position = Vector3(0, 5, 0)
 	
 	add_child(new_player, true)
+	print("[WORLD-DEBUG] Node added. Path is now: ", new_player.get_path(), " | multiplayer authority on new node: ", new_player.get_multiplayer_authority())
 
 @rpc("authority", "call_local", "reliable")
 func rpc_despawn_network_player(id: int) -> void:
